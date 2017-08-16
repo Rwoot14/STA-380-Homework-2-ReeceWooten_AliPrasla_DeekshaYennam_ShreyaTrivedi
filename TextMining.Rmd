@@ -1,0 +1,16 @@
+---
+title: "Text Mining"
+author: "Ali Prasla, Shreya Trivedi, Reece Wooten, Deeksha Yennam"
+date: "August 15, 2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+```
+
