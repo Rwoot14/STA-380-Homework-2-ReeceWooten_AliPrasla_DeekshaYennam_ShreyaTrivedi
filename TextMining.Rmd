@@ -9,8 +9,96 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+First, we obtain all authors in the training set
+```{r}
+allAuthorsInTrainingSet = list.files("ReutersC50/c50train")
+```
+
+Copy _readerPlain_ helper function and read libraries
+
+```{r}
+library(tm)
+library(magrittr)
+readerPlain = function(fname){
+				readPlain(elem=list(content=readLines(fname)), 
+							id=fname, language='en') }
+```
+
+Next, iterate through all training authors to create corpus
 
 ```{r}
 
+library(foreach)
+l = foreach( i = 1:length(allAuthorsInTrainingSet),.combine = 'c') %do% {
+  author = allAuthorsInTrainingSet[i]
+  fpath = paste("ReutersC50/c50train/",author,"/*.txt",sep = "")
+  file_list = Sys.glob(fpath)
+  current = lapply(file_list,readerPlain)
+  mynames = file_list %>%
+	{ strsplit(., '/', fixed=TRUE) } %>%
+	{ lapply(., tail, n=2) } %>%
+	{ lapply(., paste0, collapse = '') } %>%
+	unlist
+  current
+}
+trainingCorpus = Corpus(VectorSource(l))
 ```
 
+Complete data pre-processing.
+
+```{r}
+trainingCorpus = tm_map(trainingCorpus, content_transformer(tolower)) # make everything lowercase
+trainingCorpus = tm_map(trainingCorpus, content_transformer(removeNumbers)) # remove numbers
+trainingCorpus = tm_map(trainingCorpus, content_transformer(removePunctuation)) # remove punctuation
+trainingCorpus = tm_map(trainingCorpus, content_transformer(stripWhitespace))
+```
+
+Split _trainingCorpus_ into three corpus'. Without SMART stopwords, without EN stopwords, and with stopwords
+```{r}
+#trainWithoutSMART = tm_map(trainingCorpus,content_transformer(removeWords),stopwords("SMART"))
+#trainWithoutEN = tm_map(trainingCorpus,content_transformer(removeWords),stopwords("en"))
+```
+
+Perform similar operations with test set
+```{r}
+allAuthorsInTestSet = list.files("ReutersC50/c50test")
+l = foreach( i = 1:length(allAuthorsInTrainingSet),.combine = 'c') %do% {
+  author = allAuthorsInTestSet[i]
+  fpath = paste("ReutersC50/c50test/",author,"/*.txt",sep = "")
+  file_list = Sys.glob(fpath)
+  current = lapply(file_list,readerPlain)
+  mynames = file_list %>%
+	{ strsplit(., '/', fixed=TRUE) } %>%
+	{ lapply(., tail, n=2) } %>%
+	{ lapply(., paste0, collapse = '') } %>%
+	unlist
+  current
+}
+testCorpus = Corpus(VectorSource(l))
+#testWithoutSMART = tm_map(testCorpus,content_transformer(removeWords),stopwords("SMART"))
+#testWithoutEN = tm_map(testCorpus,content_transformer(removeWords),stopwords("en"))
+```
+
+TODO: Cross Validate for TF vs. TF-IDF
+```{r}
+#construct Document Term Matrix and convert to TF-IDF
+DTMTrainSimple = DocumentTermMatrix(trainingCorpus,control = list(weighting = function(x) weightTfIdf(x)))
+
+```
+
+TODO: Drop Frequent Terms
+```{r}
+dropTermPercent = .95
+DTMTrainSimple = removeSparseTerms(DTMTrainSimple,dropTermPercent)
+```
+
+Run PCA...
+```{r}
+pcaTrainSimple = prcomp(DTMTrainSimple,scale = TRUE)
+```
+...and plot _sdev_ for each number of Principle Components:
+```{r}
+par(bg = "gray")
+plot(pcaTrainSimple$sdev^2,type = "l",main = "Projection Error for number of Principle Components",col = "blue",xlab = "Number of Principal Components",ylab = "Projection Error (Variance)")
+abline(v = 150,lw = 2,col = "red")
+```
