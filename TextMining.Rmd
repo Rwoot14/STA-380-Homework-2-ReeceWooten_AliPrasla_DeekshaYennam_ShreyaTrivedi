@@ -89,7 +89,7 @@ DTMTrainSimple = DocumentTermMatrix(trainingCorpus,control = list(weighting = fu
 TODO: Drop Frequent Terms
 ```{r}
 dropTermPercent = .95
-DTMTrainSimple = removeSparseTerms(DTMTrainSimple,dropTermPercent)
+DTMTrainSimple =removeSparseTerms(DTMTrainSimple,dropTermPercent)
 ```
 
 Run PCA...
@@ -100,5 +100,29 @@ pcaTrainSimple = prcomp(DTMTrainSimple,scale = TRUE)
 ```{r}
 par(bg = "gray")
 plot(pcaTrainSimple$sdev^2,type = "l",main = "Projection Error for number of Principle Components",col = "blue",xlab = "Number of Principal Components",ylab = "Projection Error (Variance)")
-abline(v = 150,lw = 2,col = "red")
+bestComponents = 150
+abline(v = bestComponents ,lw = 2,col = "red")
 ```
+
+Next, construct your Document Vectors
+
+```{r}
+x = as.matrix(DTMTrainSimple)
+V = t(t(pcaTrainSimple$rotation)[1:bestComponents,])
+x = x %*% V
+```
+
+As a final part of pre-processing, construct your response vector
+```{r}
+response = sort(rep(allAuthorsInTrainingSet,50))
+```
+
+Format your testset:
+```{r}
+testCorpus = tm_map(testCorpus, content_transformer(tolower)) # make everything lowercase
+testCorpus = tm_map(testCorpus, content_transformer(removeNumbers)) # remove numbers
+testCorpus = tm_map(testCorpus, content_transformer(removePunctuation)) # remove punctuation
+testCorpus = tm_map(testCorpus, content_transformer(stripWhitespace))
+```
+
+
