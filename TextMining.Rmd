@@ -55,8 +55,7 @@ trainingCorpus = tm_map(trainingCorpus, content_transformer(stripWhitespace))
 
 Split _trainingCorpus_ into three corpus'. Without SMART stopwords, without EN stopwords, and with stopwords
 ```{r}
-#trainWithoutSMART = tm_map(trainingCorpus,content_transformer(removeWords),stopwords("SMART"))
-#trainWithoutEN = tm_map(trainingCorpus,content_transformer(removeWords),stopwords("en"))
+trainingCorpus = tm_map(trainingCorpus,content_transformer(removeWords),stopwords("en"))
 ```
 
 Perform similar operations with test set
@@ -75,7 +74,7 @@ l = foreach( i = 1:length(allAuthorsInTrainingSet),.combine = 'c') %do% {
   current
 }
 testCorpus = Corpus(VectorSource(l))
-#testWithoutSMART = tm_map(testCorpus,content_transformer(removeWords),stopwords("SMART"))
+testCorpus = tm_map(testCorpus,content_transformer(removeWords),stopwords("en"))
 #testWithoutEN = tm_map(testCorpus,content_transformer(removeWords),stopwords("en"))
 ```
 
@@ -123,6 +122,80 @@ testCorpus = tm_map(testCorpus, content_transformer(tolower)) # make everything 
 testCorpus = tm_map(testCorpus, content_transformer(removeNumbers)) # remove numbers
 testCorpus = tm_map(testCorpus, content_transformer(removePunctuation)) # remove punctuation
 testCorpus = tm_map(testCorpus, content_transformer(stripWhitespace))
+
+```
+Turn Test Corpus into DTM matrix:
+```{r}
+DTMTestSet = DocumentTermMatrix(testCorpus,control = list(weighting = function(x) weightTfIdf(x)))
+```
+
+Apply the training set's PCA:
+```{r}
+pcaTest = predict(pcaTrainSimple,newdata = DTMTestSet)
+testX = pcaTest[,1:bestComponents]
+```
+
+Create test set response (same as training set response because of directory file structure) and create classification rate function
+```{r}
+testResponse = response
+
+getClassificationRate = function(model,testX,testY){
+  pred = predict(model,data.frame(testX))
+  sum(pred == testY)/length(pred)
+}
+```
+
+Run a Naive Bayes on the data
+```{r}
+library(naivebayes)
+nb = naive_bayes(x = x, y= as.factor(response))
+getClassificationRate(nb,testX,testResponse)
+```
+
+Decision Tree Bagging
+```{r}
+library(randomForest)
+library(doParallel)
+registerDoParallel(cores = 6)
+testTrees = c(1,2,5,10,20,40,60,100,120,180,200)
+bagClass = foreach( i = 1:length(testTrees),.combine = 'c') %dopar%
+{
+    bag = randomForest::randomForest(as.factor(response) ~.,data = data.frame(x),mtry =bestComponents,ntree = testTrees[i])
+    getClassificationRate(bag,testX,testResponse)  
+}
+
+```
+
+Plot the outcome of the Decision Tree
+```{r}
+par(bg = "gray")
+plot(testTrees,randomForestClass,type = "l", col = "red",main = "Bagging in Decision Trees: Classification Rate vs Number of Trees",xlab = "Number of Trees",ylab = "Classification Rate")
+print(paste("Best Out-of-Sample Classification Rate: ", max(bagClass)))
+```
+This is still a very low classification rate. Let's try a Gradient Boosted Tree model
+
+```{r}
+library(gbm)
+boost = gbm::gbm(as.factor(response)~.,data = data.frame(x),n.trees = 100,shrinkage = .01,interaction.depth = 3)
+pred = predict(boost,data.frame(testX),n.trees = 50)
+pred = colnames(pred)[apply(data.frame(pred),1,which.max)]
+sum(pred == testResponse)/length(testResponse)
+```
+Boosting works better than Random Forest or Bagging and Naive Bayes. Yet, there is still a relatively low classfication error. This author attribution task was very difficult for these models. However, this model does perform well over the baseline of 2%. 
+
+Using boosting as our model going forward, let's take a look at this model's predictions per author.
+```{r}
+library(dplyr)
+authorClassification = data.frame(pred) %>% group_by(pred) %>% summarise(count = n()) %>% arrange(desc(count))
 ```
 
 
+The boosted model was over predicting authors:
+```{r}
+authorClassification[1:5,]
+```
+
+And under predicting authors:
+```{r}
+authorClassification[(nrow(authorClassification)-5):nrow(authorClassification),]
+```
