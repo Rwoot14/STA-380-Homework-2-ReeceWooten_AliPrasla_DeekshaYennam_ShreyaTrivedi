@@ -2,12 +2,13 @@
 title: "Exercise Two"
 author: "Ali Prasla, Shreya Trivedi, Reece Wooten, Deeksha Yennam"
 date: "August 18, 2017"
-output: pdf_document
+output: md_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
 
 ##Flights at ABIA
 
@@ -15,7 +16,7 @@ We used the data corresponding to all departures from the Austin/Bergstrom Airpo
 
 These charts can help us to get a sense of which aircraft carriers are most delayed on each day of the week for every month. We can also observe how delay patterns changed over the year.
 
-```{r setup, include=FALSE}
+```{r include=FALSE}
 # loading all libraries
 library(plyr)
 library(dplyr)
@@ -51,7 +52,9 @@ for (month in levels(ABIA_dep$Month)){
 White cells represent no flights relevant to that particular cell.
 
 
+These heat maps make interpretations on a month by month basis easy. April appears to be the best month to travel across the board, regardless of the day of the week, to minimize delays. The summer months of June,July, and August have a higher rate of delays perhaps because of the increased passenger traffic.
 
+Finally, there does not appear to be a consistently delay prone airline. It seems stochastic over all the visualizations.
 ##Author Attribution
 
 ###Pre-Processing
@@ -216,7 +219,7 @@ bagClass = foreach( i = 1:length(testTrees),.combine = 'c') %dopar%
 Plot the outcome of Bagging
 ```{r}
 par(bg = "gray")
-plot(testTrees,randomForestClass,type = "l", col = "red",main = "Bagging in Decision Trees: Classification Rate vs Number of Trees",xlab = "Number of Trees",ylab = "Classification Rate")
+plot(testTrees,bagClass,type = "l", col = "red",main = "Bagging in Decision Trees: Classification Rate vs Number of Trees",xlab = "Number of Trees",ylab = "Classification Rate")
 print(paste("Best Out-of-Sample Classification Rate: ", max(bagClass)))
 ```
 This is still a very low classification rate. Let's try a Gradient Boosted Tree model
@@ -253,7 +256,7 @@ Given more time, the next step would be to apply more sophisticated and speciali
 
 ##Association Rule Mining
 
-```{r setup, include=FALSE}
+```{r}
 library(arules)
 ```
 
