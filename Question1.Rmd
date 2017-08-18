@@ -1,0 +1,41 @@
+# Question 1
+
+We used the data corresponding to all departures from the Austin/Bergstrom Airport in 2008 to create a set 12 of heatmaps, one for each month of the year that depict the average departure delays(in hours) by aircraft carrier and day of the week.
+
+These charts can help us to get a sense of which aircraft carriers are most delayed on each day of the week for every month. We can also observe how delay patterns changed over the year.
+
+```{r setup, include=FALSE}
+# loading all libraries
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+library(gplots)
+```
+
+```{r warning=FALSE}
+ABIA=read.csv('ABIA.csv')
+ABIA_dep=ABIA[ABIA$Origin=='AUS',]
+ABIA_dep_df=tbl_df(ABIA_dep)
+ABIA_dep$DayOfWeek=as.factor(ABIA_dep$DayOfWeek)
+ABIA_dep$DayOfWeek =revalue(ABIA_dep$DayOfWeek ,c("1"="Mon","2"="Tue","3"="Wed","4"="Thurs","5"="Fri","6"="Sat","7"="Sun"))
+ABIA_dep$Month=as.factor(ABIA_dep$Month)
+ABIA_dep$Month =revalue(ABIA_dep$Month ,c("1"="January","2"="February","3"="March","4"="April","5"="May","6"="June","7"="July",
+    "8"="August","9"="September","10"="October","11"="November","12"="December"))
+```
+
+```{r warning=FALSE,message=FALSE}
+color=colorRampPalette(c('white','red'))
+for (month in levels(ABIA_dep$Month)){
+                    ABIA_dep_month=ABIA_dep[ABIA_dep$Month==month,]
+                    ABIA_dep_df=tbl_df(ABIA_dep_month)
+                    carrier=group_by(ABIA_dep_df,UniqueCarrier, DayOfWeek)
+                    carrier_delay = summarize(carrier, delay = mean(DepDelay, na.rm = TRUE))
+                    carrier_de=cast(carrier_delay, UniqueCarrier~DayOfWeek)
+                    heatmap.2(as.matrix(carrier_de),Rowv=NA, Colv=NA,na.rm=TRUE,main=month,col=color,trace='none')
+                    cat("\n\n\n\n\n")
+                    }
+```
+
+White cells represent no flights relevant to that particular cell.
+

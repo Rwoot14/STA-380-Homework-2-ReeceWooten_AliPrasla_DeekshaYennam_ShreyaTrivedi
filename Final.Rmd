@@ -1,7 +1,7 @@
 ---
-title: "Text Mining"
+title: "Exercise Two"
 author: "Ali Prasla, Shreya Trivedi, Reece Wooten, Deeksha Yennam"
-date: "August 15, 2017"
+date: "August 18, 2017"
 output: pdf_document
 ---
 
@@ -9,8 +9,52 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+##Flights at ABIA
 
-####Pre-Processing
+We used the data corresponding to all departures from the Austin/Bergstrom Airport in 2008 to create a set 12 of heatmaps, one for each month of the year that depict the average departure delays(in hours) by aircraft carrier and day of the week.
+
+These charts can help us to get a sense of which aircraft carriers are most delayed on each day of the week for every month. We can also observe how delay patterns changed over the year.
+
+```{r setup, include=FALSE}
+# loading all libraries
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+library(gplots)
+```
+
+```{r warning=FALSE}
+ABIA=read.csv('ABIA.csv')
+ABIA_dep=ABIA[ABIA$Origin=='AUS',]
+ABIA_dep_df=tbl_df(ABIA_dep)
+ABIA_dep$DayOfWeek=as.factor(ABIA_dep$DayOfWeek)
+ABIA_dep$DayOfWeek =revalue(ABIA_dep$DayOfWeek ,c("1"="Mon","2"="Tue","3"="Wed","4"="Thurs","5"="Fri","6"="Sat","7"="Sun"))
+ABIA_dep$Month=as.factor(ABIA_dep$Month)
+ABIA_dep$Month =revalue(ABIA_dep$Month ,c("1"="January","2"="February","3"="March","4"="April","5"="May","6"="June","7"="July",
+    "8"="August","9"="September","10"="October","11"="November","12"="December"))
+```
+
+```{r warning=FALSE,message=FALSE}
+color=colorRampPalette(c('white','red'))
+for (month in levels(ABIA_dep$Month)){
+                    ABIA_dep_month=ABIA_dep[ABIA_dep$Month==month,]
+                    ABIA_dep_df=tbl_df(ABIA_dep_month)
+                    carrier=group_by(ABIA_dep_df,UniqueCarrier, DayOfWeek)
+                    carrier_delay = summarize(carrier, delay = mean(DepDelay, na.rm = TRUE))
+                    carrier_de=cast(carrier_delay, UniqueCarrier~DayOfWeek)
+                    heatmap.2(as.matrix(carrier_de),Rowv=NA, Colv=NA,na.rm=TRUE,main=month,col=color,trace='none')
+                    cat("\n\n\n\n\n")
+                    }
+```
+
+White cells represent no flights relevant to that particular cell.
+
+
+
+##Author Attribution
+
+###Pre-Processing
 First, we obtain all authors in the training set
 ```{r}
 allAuthorsInTrainingSet = list.files("ReutersC50/c50train")
@@ -88,7 +132,7 @@ Finally, drop all the sparse terms from the Document term matrix.
 dropTermPercent = .95
 DTMTrainSimple = removeSparseTerms(DTMTrainSimple,dropTermPercent)
 ```
-#### Principle Component Analysis
+### Principle Component Analysis
 Run PCA on Training Data
 ```{r}
 pcaTrainSimple = prcomp(DTMTrainSimple,scale = TRUE)
@@ -103,7 +147,7 @@ abline(v = bestComponents ,lw = 2,col = "red")
 ```
 
 
-####Finishing up Latent Semantic Analysis
+###Finishing up Latent Semantic Analysis
 
 Next, construct your Document Vectors by applying Principal Components 
 ```{r}
@@ -147,14 +191,14 @@ getClassificationRate = function(model,testX,testY){
 }
 ```
 
-####First Model: Naive Bayes
+###First Model: Naive Bayes
 ```{r}
 library(naivebayes)
 nb = naive_bayes(x = x, y= as.factor(response))
 getClassificationRate(nb,testX,testResponse)
 ```
 
-####Second Model: Ensemable Decision Trees: Bagging
+###Second Model: Ensemable Decision Trees: Bagging
 Decision Tree Bagging
 ```{r}
 library(randomForest)
@@ -178,7 +222,7 @@ print(paste("Best Out-of-Sample Classification Rate: ", max(bagClass)))
 This is still a very low classification rate. Let's try a Gradient Boosted Tree model
 
 
-####Third Model: Ensemble Decision Tree: Gradient Boosting
+###Third Model: Ensemble Decision Tree: Gradient Boosting
 ```{r}
 library(gbm)
 boost = gbm::gbm(as.factor(response)~.,data = data.frame(x),n.trees = 100,shrinkage = .01,interaction.depth = 3)
@@ -204,5 +248,51 @@ And under predicting authors:
 ```{r}
 authorClassification[(nrow(authorClassification)-5):nrow(authorClassification),]
 ```
-####Author Attribution Next Steps
-Given more time, the next step would be to apply more sophisticated and specialized Natural Language Processing strategies like Support Vector Machines or Latent Dirichlet Allocation. We would expect those techniques to work better, although the tree methods provide a solid baseline for how well author attribution on this Corpus would work.
+###Author Attribution Next Steps
+Given more time, the next step would be to apply more sophisticated and specialized Natural Language Processing strategies like Support Vector Machines or Latent Dirichlet Allocation. We would expect those techniques to work better, although the tree methods provide a solid baseline for how well author attribution could work on this Corpus.
+
+##Association Rule Mining
+
+```{r setup, include=FALSE}
+library(arules)
+```
+
+###Preprocess and Initial Run
+First, import dataset using 'read.transactions'. This function let's you import the dataset in the format which 'arules' can use
+```{r}
+groceries = read.transactions('https://raw.githubusercontent.com/jgscott/STA380/master/data/groceries.txt', format = 'basket', sep = ',', rm.duplicates = FALSE)
+```
+
+Next, run the apriori algorithm on the dataset to generate association rules.
+Initially run the algorithm with low values for the 'Support' and 'Confidence' and check the rules generated:
+```{r}
+groc_rules <- apriori(groceries, parameter=list(support=.01, confidence=.5, maxlen=10))
+inspect(subset(groc_rules, subset=lift > 2))
+```
+
+The 14 rules generated here are the set of all possible association rules which have a support and confidence greater than the thresholds provided.
+
+
+###Find Power Association Rules
+
+Create subsets of these association rules by altering the 'support', 'confidence' and 'lift' parameters and observing which association rules are filtered out. As 'Lift' is the increase in probability of the "consequent" itemset given the "if" (antecedent) itemset, higher the Lift, stronger is the association between the two itemsets in the association rule. To filter out only the strong association rules we can subset for those rules which have high Lift
+
+In this example, no rules have a lift greater than 3.5. Set the lift threshold to 3.0.
+```{r}
+inspect(subset(groc_rules, subset=lift > 3))
+```
+
+There is a trade off present with this 'Lift' threshold. We could get rules with a Lift greater than 3 but we would have to reduce the minimum 'Support' thresholds. This would give us rules where the association is stronger but, because 'Support' is low for them, the count of itemsets that show up in these rules are too low to be considered significant from a sales perspective.
+
+Similarly, getting high values of 'Lift' when 'Confidence' is low does not help, because this happens only when 'Expected Confidence' is also low. Such itemsets and the resultant association rules which have low 'Expected Confidence' face significance problems just like low 'Support' rules.
+```{r}
+inspect(subset(groc_rules, subset=confidence > 0.58))
+```
+The discovered relationships are reasonable. Dairy product are associated in Item 1 and Fruits/Vegetables are associated in Items 2 and 3. This relationships makes sense not only because of typical geography of a grocery store (Dairy Products together and Fruits/Vegetables together), but also the types of people who would purchase those groceries.
+
+Most powerful association rule:
+```{r}
+inspect(subset(groc_rules, subset=support > .011 & confidence > 0.58 & lift>3))
+```
+
+
