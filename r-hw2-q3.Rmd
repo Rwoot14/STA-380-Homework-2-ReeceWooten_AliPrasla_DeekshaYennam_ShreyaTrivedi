@@ -1,0 +1,49 @@
+---
+title: "HW 2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(arules)
+```
+
+Importing dataset using 'read.transactions'. This function let's you import the dataset in the format which 'arules' can use
+
+```{r}
+groceries = read.transactions('https://raw.githubusercontent.com/jgscott/STA380/master/data/groceries.txt', format = 'basket', sep = ',', rm.duplicates = FALSE)
+```
+
+- Running the apriori algorithm on the dataset to generate association rules.
+- Initially running 'apriori' with random values for the 'Support' and 'Confidence' parameters and checking the rules generated
+```{r}
+groc_rules <- apriori(groceries, parameter=list(support=.01, confidence=.5, maxlen=6))
+
+```
+
+The 15 rules generated here are the set of all possible association rules which have a support and confidence greater than the thresholds provided
+```{r}
+inspect(groc_rules)
+```
+
+###Creating subsets of these association rules by altering the 'support', 'confidence' and 'lift' parameters and observing which association rules are filtered out
+
+'Lift' is the increase in probability of the "consequent" itemset given the "if" (antecedent) itemset.
+Hence, higher the Lift, stronger is the association between the two itemsets in the association rule
+To filter out only the strong association rules we can subset for those rules which have high Lift
+In this example, no rules have a lift greater than 3.5
+
+```{r}
+inspect(subset(groc_rules, subset=lift > 3))
+```
+
+We could get rules with a Lift greater than 3 but for that we will have to reduce the minimum 'Support' thresholds.
+This would give us rules where the association is stronger but, because 'Support' is low for them, the count of itemsets that show up in these rules are too low to be considered significant from a sales perspective.
+Similarly, getting high values of lift when 'Confidence' is low does not help, because this happens only when 'Expected Confidence' is also low. Such itemsets and the resultant association rules which have low 'Expected Confidence' may not be considered significant from a sales perspective.
+The highest values for 'Support' and 'Confidence' below which none of the rules show up are given below.
+
+
+inspect(subset(groc_rules, subset=lift > 3))
+inspect(subset(groc_rules, subset=confidence > 0.58))
+inspect(subset(groc_rules, subset=support > .011 & confidence > 0.58))
+```
+
